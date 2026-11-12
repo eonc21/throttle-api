@@ -4,35 +4,39 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import { AuthenticatedRequest } from './authenticated-request.js';
+import { Client } from './client.js';
+import { ClientRegistry } from './client-registry.js';
 import {
   ParsedAuthorizationHeader,
   parseAuthorizationHeader,
 } from './parse-authorization-header.js';
 
 const BEARER_SCHEME = 'bearer';
-const AUTHORIZED_CLIENT_ID = 'authorized_client';
 
 @Injectable()
 export class AuthorizationGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<Request>();
-    const parsed = parseAuthorizationHeader(request.headers.authorization);
+  constructor(private readonly clientRegistry: ClientRegistry) {}
 
-    if (!parsed || !this.isAuthorizedClient(parsed)) {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const parsed = parseAuthorizationHeader(request.headers.authorization);
+    const client = parsed && this.findClient(parsed);
+
+    if (!client) {
       throw new UnauthorizedException();
     }
 
+    request.authenticatedClient = client;
     return true;
   }
 
-  private isAuthorizedClient({
+  private findClient({
     scheme,
     credentials,
-  }: ParsedAuthorizationHeader): boolean {
-    return (
-      scheme.toLowerCase() === BEARER_SCHEME &&
-      credentials === AUTHORIZED_CLIENT_ID
-    );
+  }: ParsedAuthorizationHeader): Client | undefined {
+    return scheme.toLowerCase() === BEARER_SCHEME
+      ? this.clientRegistry.find(credentials)
+      : undefined;
   }
 }

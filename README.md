@@ -25,6 +25,30 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Authentication
+
+Every request must send the client id in the `Authorization` header:
+
+```
+Authorization: Bearer <client-id>
+```
+
+The `Bearer` scheme is case-insensitive. A missing, malformed or unknown client id gets `401`.
+
+Supported clients:
+
+| Client id           |
+| ------------------- |
+| `authorized_client` |
+| `premium_client`    |
+
+Clients and their rate limits are defined in [`src/auth/client-registry.ts`](src/auth/client-registry.ts).
+
+```bash
+$ curl -H "Authorization: Bearer authorized_client" http://localhost:3000/foo
+$ curl -H "Authorization: Bearer premium_client" http://localhost:3000/bar
+```
+
 ## Project setup
 
 ```bash

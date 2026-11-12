@@ -57,13 +57,16 @@ describe('Foo Functionality (e2e)', () => {
     });
   });
 
-  it('/foo (GET) with an Authorization header succeeds', () => {
-    return request(app.getHttpServer())
-      .get('/foo')
-      .set('Authorization', 'Bearer authorized_client')
-      .expect(200)
-      .expect({ success: true });
-  });
+  it.each(['authorized_client', 'premium_client'])(
+    '/foo (GET) succeeds for client %s',
+    async (clientId) => {
+      await request(app.getHttpServer())
+        .get('/foo')
+        .set('Authorization', `Bearer ${clientId}`)
+        .expect(200)
+        .expect({ success: true });
+    },
+  );
 
   afterEach(async () => {
     await app.close();

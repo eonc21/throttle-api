@@ -1,25 +1,46 @@
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { AuthenticatedRequest } from './authenticated-request.js';
 import { AuthorizationGuard } from './authorization.guard.js';
+import { ClientRegistry } from './client-registry.js';
 
-function contextWithHeaders(headers: Record<string, string>) {
+function contextWithRequest(request: Partial<AuthenticatedRequest>) {
   return {
-    switchToHttp: () => ({ getRequest: () => ({ headers }) }),
+    switchToHttp: () => ({ getRequest: () => request }),
   } as unknown as ExecutionContext;
 }
 
+function contextWithHeaders(headers: Record<string, string>) {
+  return contextWithRequest({ headers });
+}
+
 describe('AuthorizationGuard', () => {
+  let registry: ClientRegistry;
   let guard: AuthorizationGuard;
 
   beforeEach(() => {
-    guard = new AuthorizationGuard();
+    registry = new ClientRegistry();
+    guard = new AuthorizationGuard(registry);
   });
 
-  it.each(['Bearer authorized_client', 'bearer authorized_client'])(
-    'should let %j through',
-    (authorization) => {
-      expect(guard.canActivate(contextWithHeaders({ authorization }))).toBe(
-        true,
-      );
+  it.each([
+    'Bearer authorized_client',
+    'bearer authorized_client',
+    'Bearer premium_client',
+    'bearer premium_client',
+  ])('should let %j through', (authorization) => {
+    expect(guard.canActivate(contextWithHeaders({ authorization }))).toBe(true);
+  });
+
+  it.each(['authorized_client', 'premium_client'])(
+    'should attach %s to the request',
+    (clientId) => {
+      const request: Partial<AuthenticatedRequest> = {
+        headers: { authorization: `Bearer ${clientId}` },
+      };
+
+      guard.canActivate(contextWithRequest(request));
+
+      expect(request.authenticatedClient).toEqual(registry.find(clientId));
     },
   );
 
