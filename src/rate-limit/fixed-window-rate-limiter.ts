@@ -1,33 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { Client } from '../auth/client.js';
+import { RateLimitStore } from './rate-limit-store.js';
 import { RateLimiter } from './rate-limiter.js';
-
-interface Window {
-  startsAt: number;
-  count: number;
-}
 
 @Injectable()
 export class FixedWindowRateLimiter extends RateLimiter {
-  private readonly windows = new Map<string, Window>();
+  constructor(private readonly store: RateLimitStore) {
+    super();
+  }
 
-  consume({ id, rateLimit }: Client): boolean {
+  async consume({ id, rateLimit }: Client): Promise<boolean> {
     const windowMs = rateLimit.windowSeconds * 1000;
-    // round down the time to the nearest window start
-    const windowStartedAt = Math.floor(Date.now() / windowMs) * windowMs;
-    const storedWindow = this.windows.get(id);
-    const window: Window =
-      storedWindow?.startsAt === windowStartedAt
-        ? storedWindow
-        : { startsAt: windowStartedAt, count: 0 };
+    const now = Date.now();
+    const windowEndsAt = (Math.floor(now / windowMs) + 1) * windowMs;
 
-    this.windows.set(id, window);
+    const count = await this.store.increment(id, windowEndsAt - now);
 
-    if (window.count >= rateLimit.limit) {
-      return false;
-    }
-
-    window.count += 1;
-    return true;
+    return count <= rateLimit.limit;
   }
 }
