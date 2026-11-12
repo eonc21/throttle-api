@@ -16,9 +16,51 @@ describe('Foo Functionality (e2e)', () => {
     await app.init();
   });
 
-  it('/foo (GET)', () => {
+  describe('Authorization failures', () => {
+    it('/foo (GET) without an Authorization header is rejected', () => {
+      return request(app.getHttpServer())
+        .get('/foo')
+        .expect(401)
+        .expect(({ body }: { body: { message: string } }) => {
+          expect(body.message).toBe('Unauthorized');
+        });
+    });
+
+    it('/foo (GET) with a blank Authorization header is rejected', () => {
+      return request(app.getHttpServer())
+        .get('/foo')
+        .set('Authorization', ' ')
+        .expect(401)
+        .expect(({ body }: { body: { message: string } }) => {
+          expect(body.message).toBe('Unauthorized');
+        });
+    });
+
+    it('/foo (GET) with an unauthorized client id is rejected', () => {
+      return request(app.getHttpServer())
+        .get('/foo')
+        .set('Authorization', 'Bearer unauthorized_client')
+        .expect(401)
+        .expect(({ body }: { body: { message: string } }) => {
+          expect(body.message).toBe('Unauthorized');
+        });
+    });
+
+    it('/foo (GET) with a malformed Authorization header is rejected', () => {
+      return request(app.getHttpServer())
+        .get('/foo')
+        .set('Authorization', 'not-an-authorization-header')
+        .expect(401)
+        .expect(({ body }: { body: { message: string } }) => {
+          expect(body.message).toBe('Unauthorized');
+        });
+    });
+  });
+
+  it('/foo (GET) with an Authorization header succeeds', () => {
     return request(app.getHttpServer())
       .get('/foo')
+      .set('Authorization', 'Bearer authorized_client')
       .expect(200)
       .expect({ success: true });
   });
