@@ -18,7 +18,7 @@ function contextFor(authenticatedClient: Client): ExecutionContext {
 }
 
 describe('RateLimitGuard', () => {
-  const consume = vi.fn<(client: Client) => boolean>();
+  const consume = vi.fn<(client: Client) => Promise<boolean>>();
   const rateLimiter: RateLimiter = { consume };
   let guard: RateLimitGuard;
 
@@ -27,17 +27,17 @@ describe('RateLimitGuard', () => {
     guard = new RateLimitGuard(rateLimiter);
   });
 
-  it('should let the request through when the limiter allows the client', () => {
-    consume.mockReturnValue(true);
+  it('should let the request through when the limiter allows the client', async () => {
+    consume.mockResolvedValue(true);
 
-    expect(guard.canActivate(contextFor(CLIENT))).toBe(true);
+    await expect(guard.canActivate(contextFor(CLIENT))).resolves.toBe(true);
     expect(consume).toHaveBeenCalledWith(CLIENT);
   });
 
-  it('should reject the request when the limiter denies the client', () => {
-    consume.mockReturnValue(false);
+  it('should reject the request when the limiter denies the client', async () => {
+    consume.mockResolvedValue(false);
 
-    expect(() => guard.canActivate(contextFor(CLIENT))).toThrow(
+    await expect(guard.canActivate(contextFor(CLIENT))).rejects.toThrow(
       RateLimitExceededException,
     );
   });

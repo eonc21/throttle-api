@@ -7,10 +7,10 @@ import { RateLimiter } from './rate-limiter.js';
 export class RateLimitGuard implements CanActivate {
   constructor(private readonly rateLimiter: RateLimiter) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const client = getCurrentClient(undefined, context);
 
-    if (!this.rateLimiter.consume(client)) {
+    if (!(await this.rateLimiter.consume(client))) {
       throw new RateLimitExceededException();
     }
 
