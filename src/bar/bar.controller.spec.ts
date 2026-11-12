@@ -1,14 +1,14 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { AuthModule } from '../auth/auth.module.js';
 import { BarController } from './bar.controller.js';
-import { BarService } from './bar.service.js';
 
 describe('BarController', () => {
   let barController: BarController;
 
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
+      imports: [AuthModule],
       controllers: [BarController],
-      providers: [BarService],
     }).compile();
 
     barController = app.get<BarController>(BarController);
