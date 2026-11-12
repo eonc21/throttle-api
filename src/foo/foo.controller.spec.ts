@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {  FooController } from './foo.controller.js';
+import { FooController } from './foo.controller.js';
 import { FooService } from './foo.service.js';
 
 describe('FooController', () => {
@@ -16,7 +16,7 @@ describe('FooController', () => {
 
   describe('foo', () => {
     it('should return { success: true }', () => {
-      expect(fooController.get()).toEqual({ success: true } );
+      expect(fooController.get()).toEqual({ success: true });
     });
   });
 });
