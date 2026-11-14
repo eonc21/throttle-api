@@ -1,20 +1,23 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createRateLimitStore } from './stores/create-rate-limit-store.js';
-import { RateLimitStore } from './stores/rate-limit-store.js';
+import { CounterStore } from './stores/counter/counter-store.js';
+import { createCounterStore } from './stores/counter/create-counter-store.js';
+import { parseStoreBackend } from './stores/store-backend.js';
+
+const DEFAULT_REDIS_URL = 'redis://localhost:6379';
 
 @Module({
   providers: [
     {
-      provide: RateLimitStore,
+      provide: CounterStore,
       inject: [ConfigService],
-      useFactory: (config: ConfigService): RateLimitStore =>
-        createRateLimitStore(
-          config.get<string>('RATE_LIMIT_STORE'),
-          config.get<string>('REDIS_URL', 'redis://localhost:6379'),
+      useFactory: (config: ConfigService): CounterStore =>
+        createCounterStore(
+          parseStoreBackend(config.get<string>('RATE_LIMIT_STORE')),
+          config.get<string>('REDIS_URL', DEFAULT_REDIS_URL),
         ),
     },
   ],
-  exports: [RateLimitStore],
+  exports: [CounterStore],
 })
 export class RateLimitStoreModule {}

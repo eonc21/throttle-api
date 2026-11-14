@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Client } from '../../auth/client.js';
-import { RateLimitStore } from '../stores/rate-limit-store.js';
+import { CounterStore } from '../stores/counter/counter-store.js';
 import { RateLimiter } from './rate-limiter.js';
 
 @Injectable()
 export class FixedWindowRateLimiter extends RateLimiter {
-  constructor(private readonly store: RateLimitStore) {
+  constructor(private readonly store: CounterStore) {
     super();
   }
 

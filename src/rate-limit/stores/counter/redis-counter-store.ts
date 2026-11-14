@@ -1,6 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Redis } from 'ioredis';
-import { RateLimitStore } from './rate-limit-store.js';
+import { CounterStore } from './counter-store.js';
 
 const INCREMENT_COUNTER_WITH_EXPIRY_SCRIPT = `
 local counterKey = KEYS[1]
@@ -15,8 +15,8 @@ return requestCount
 const NUMBER_OF_KEYS_PASSED_TO_SCRIPT = 1;
 
 @Injectable()
-export class RedisRateLimitStore
-  extends RateLimitStore
+export class RedisCounterStore
+  extends CounterStore
   implements OnModuleInit, OnModuleDestroy
 {
   constructor(private readonly redisClient: Redis) {
@@ -25,6 +25,7 @@ export class RedisRateLimitStore
 
   async onModuleInit(): Promise<void> {
     const isConnectionNotStartedYet = this.redisClient.status === 'wait';
+
     if (isConnectionNotStartedYet) {
       await this.redisClient.connect();
     }
@@ -39,6 +40,12 @@ export class RedisRateLimitStore
     );
 
     return Number(redisReply);
+  }
+
+  async get(key: string): Promise<number> {
+    const redisReply = await this.redisClient.get(key);
+
+    return Number(redisReply ?? 0);
   }
 
   async onModuleDestroy(): Promise<void> {

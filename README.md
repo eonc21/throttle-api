@@ -51,7 +51,10 @@ curl -H "Authorization: Bearer authorized_client" http://localhost:3000/foo
 
 Clients and limits are defined in `src/auth/client-registry.ts`.
 
-`/foo` uses a fixed window counter. Rate limiting for `/bar` is not implemented yet: it only checks the client id.
+The two endpoints use different algorithms:
+
+- `/foo` uses a **fixed window**: each client gets its limit per clock-aligned window (for example 5 requests between `10:15:00` and `10:15:59`), and the count resets at the start of the next window.
+- `/bar` uses a **sliding window counter**: it counts each client's requests per window like `/foo`, but also adds the previous window's count, weighted by how much of that window still overlaps the last 60 seconds. This removes the burst that a fixed window allows right at a window boundary.
 
 ## Test
 

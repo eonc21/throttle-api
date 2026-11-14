@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { RateLimitStore } from '../../src/rate-limit/stores/rate-limit-store.js';
+import { CounterStore } from '../../src/rate-limit/stores/counter/counter-store.js';
 
 const TTL_MS = 300;
 
@@ -7,12 +7,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function describeRateLimitStore(
+export function describeCounterStore(
   name: string,
-  createStore: () => RateLimitStore,
+  createStore: () => CounterStore,
 ): void {
-  describe(`${name} (RateLimitStore contract)`, () => {
-    let store: RateLimitStore;
+  describe(`${name} (CounterStore contract)`, () => {
+    let store: CounterStore;
     let keyPrefix: string;
 
     beforeEach(() => {
@@ -38,7 +38,20 @@ export function describeRateLimitStore(
       expect(await store.increment(key, TTL_MS)).toBe(2);
 
       await sleep(150);
+      expect(await store.get(key)).toBe(0);
       expect(await store.increment(key, TTL_MS)).toBe(1);
+    });
+
+    it('should read the current count without changing it, and read 0 for an unknown key', async () => {
+      const key = `${keyPrefix}:a`;
+      expect(await store.get(key)).toBe(0);
+
+      await store.increment(key, TTL_MS);
+      await store.increment(key, TTL_MS);
+
+      expect(await store.get(key)).toBe(2);
+      expect(await store.get(key)).toBe(2);
+      expect(await store.increment(key, TTL_MS)).toBe(3);
     });
   });
 }

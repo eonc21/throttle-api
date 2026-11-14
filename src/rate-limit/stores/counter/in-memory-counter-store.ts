@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { RateLimitStore } from './rate-limit-store.js';
+import { CounterStore } from './counter-store.js';
 
 interface Counter {
   requestCount: number;
@@ -7,7 +7,7 @@ interface Counter {
 }
 
 @Injectable()
-export class InMemoryRateLimitStore extends RateLimitStore {
+export class InMemoryCounterStore extends CounterStore {
   private readonly counterByKey = new Map<string, Counter>();
 
   increment(key: string, ttlMs: number): Promise<number> {
@@ -24,5 +24,15 @@ export class InMemoryRateLimitStore extends RateLimitStore {
     activeCounter.requestCount += 1;
     this.counterByKey.set(key, activeCounter);
     return Promise.resolve(activeCounter.requestCount);
+  }
+
+  get(key: string): Promise<number> {
+    const existingCounter = this.counterByKey.get(key);
+    const isExistingCounterActive =
+      existingCounter !== undefined && existingCounter.expiresAtMs > Date.now();
+
+    return Promise.resolve(
+      isExistingCounterActive ? existingCounter.requestCount : 0,
+    );
   }
 }

@@ -1,6 +1,6 @@
 import { Client } from '../../auth/client.js';
 import { FixedWindowRateLimiter } from './fixed-window-rate-limiter.js';
-import { InMemoryRateLimitStore } from '../stores/in-memory-rate-limit-store.js';
+import { InMemoryCounterStore } from '../stores/counter/in-memory-counter-store.js';
 
 const WINDOW_START = new Date('2026-01-01T00:00:00.000Z');
 
@@ -9,13 +9,13 @@ function clientWith(id: string, limit: number): Client {
 }
 
 describe('FixedWindowRateLimiter', () => {
-  let store: InMemoryRateLimitStore;
+  let store: InMemoryCounterStore;
   let limiter: FixedWindowRateLimiter;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(WINDOW_START);
-    store = new InMemoryRateLimitStore();
+    store = new InMemoryCounterStore();
     limiter = new FixedWindowRateLimiter(store);
   });
 
