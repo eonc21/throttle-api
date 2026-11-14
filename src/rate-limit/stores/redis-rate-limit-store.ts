@@ -25,7 +25,6 @@ export class RedisRateLimitStore
 
   async onModuleInit(): Promise<void> {
     const isConnectionNotStartedYet = this.redisClient.status === 'wait';
-
     if (isConnectionNotStartedYet) {
       await this.redisClient.connect();
     }
