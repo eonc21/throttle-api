@@ -34,3 +34,7 @@ Testing
 - The same set of tests runs against both stores, so they behave the same.
 - Rate limit tests use a fake clock, so they are fast and do not depend on real time.
 - E2E tests use the whole app module, so a missing registration is caught.
+
+Docker
+
+- I containerized the app so it runs the same on any OS that has Docker
