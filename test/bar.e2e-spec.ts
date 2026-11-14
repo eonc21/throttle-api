@@ -2,14 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
-import { BarModule } from './../src/bar/bar.module.js';
+import { AppModule } from '../src/app.module.js';
 
 describe('Bar Functionality (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [BarModule],
+      imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -67,6 +67,31 @@ describe('Bar Functionality (e2e)', () => {
         .expect({ success: true });
     },
   );
+
+  describe('Rate limiting', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('/bar (GET) is rate limited: a client sending too many requests gets 429', async () => {
+      const statuses: number[] = [];
+
+      for (let i = 0; i < 10; i++) {
+        const { status } = await request(app.getHttpServer())
+          .get('/bar')
+          .set('Authorization', 'Bearer authorized_client');
+        statuses.push(status);
+      }
+
+      expect(statuses[0]).toBe(200);
+      expect(statuses).toContain(429);
+    });
+  });
 
   afterEach(async () => {
     await app.close();

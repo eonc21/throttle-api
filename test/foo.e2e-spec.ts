@@ -2,14 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types.js';
-import { FooModule } from './../src/foo/foo.module.js';
+import { AppModule } from '../src/app.module.js';
 
 describe('Foo Functionality (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [FooModule],
+      imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -67,6 +67,35 @@ describe('Foo Functionality (e2e)', () => {
         .expect({ success: true });
     },
   );
+
+  // just a basic test to test that the rate limiting is applied on foo
+  // but the real tests are inside the rate-limiting.e2e-spec.ts file
+  describe('Rate limiting', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('/foo (GET) is rate limited: a client sending too many requests gets 429', async () => {
+      const statuses: number[] = [];
+
+      // note to self, this might break if the limit changes
+      // another note to self, this is flaky when you also make requests with curl/Postman yourself
+      for (let i = 0; i < 10; i++) {
+        const { status } = await request(app.getHttpServer())
+          .get('/foo')
+          .set('Authorization', 'Bearer authorized_client');
+        statuses.push(status);
+      }
+
+      expect(statuses[0]).toBe(200);
+      expect(statuses).toContain(429);
+    });
+  });
 
   afterEach(async () => {
     await app.close();
