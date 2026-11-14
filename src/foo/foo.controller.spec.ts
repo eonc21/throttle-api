@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthModule } from '../auth/auth.module.js';
-import { FixedWindowRateLimiter } from '../rate-limit/fixed-window-rate-limiter.js';
-import { InMemoryRateLimitStore } from '../rate-limit/in-memory-rate-limit-store.js';
-import { RateLimitStore } from '../rate-limit/rate-limit-store.js';
-import { RateLimiter } from '../rate-limit/rate-limiter.js';
+import { FixedWindowRateLimiter } from '../rate-limit/limiters/fixed-window-rate-limiter.js';
+import { InMemoryRateLimitStore } from '../rate-limit/stores/in-memory-rate-limit-store.js';
+import { RateLimitStore } from '../rate-limit/stores/rate-limit-store.js';
+import { RateLimiter } from '../rate-limit/limiters/rate-limiter.js';
 import { FooController } from './foo.controller.js';
 
 describe('FooController', () => {

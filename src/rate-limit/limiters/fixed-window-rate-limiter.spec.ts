@@ -1,6 +1,6 @@
-import { Client } from '../auth/client.js';
+import { Client } from '../../auth/client.js';
 import { FixedWindowRateLimiter } from './fixed-window-rate-limiter.js';
-import { InMemoryRateLimitStore } from './in-memory-rate-limit-store.js';
+import { InMemoryRateLimitStore } from '../stores/in-memory-rate-limit-store.js';
 
 const WINDOW_START = new Date('2026-01-01T00:00:00.000Z');
 
@@ -30,6 +30,18 @@ describe('FixedWindowRateLimiter', () => {
     }
 
     expect(results).toEqual([true, true, true, false]);
+  });
+
+  it('should store the counts under a key namespaced by the algorithm', async () => {
+    const store = new InMemoryRateLimitStore();
+    const increment = vi.spyOn(store, 'increment');
+
+    await new FixedWindowRateLimiter(store).consume(clientWith('a', 1));
+
+    expect(increment).toHaveBeenCalledWith(
+      'fixed-window:a',
+      expect.any(Number),
+    );
   });
 
   it('should keep denying until the window ends and then start a new one', async () => {

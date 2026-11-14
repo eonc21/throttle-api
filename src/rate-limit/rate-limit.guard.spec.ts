@@ -3,7 +3,7 @@ import { AuthenticatedRequest } from '../auth/authenticated-request.js';
 import { Client } from '../auth/client.js';
 import { RateLimitExceededException } from './rate-limit-exceeded.exception.js';
 import { RateLimitGuard } from './rate-limit.guard.js';
-import { RateLimiter } from './rate-limiter.js';
+import { RateLimiter } from './limiters/rate-limiter.js';
 
 const CLIENT: Client = {
   id: 'a',

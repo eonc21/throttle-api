@@ -1,7 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { getCurrentClient } from '../auth/current-client.decorator.js';
 import { RateLimitExceededException } from './rate-limit-exceeded.exception.js';
-import { RateLimiter } from './rate-limiter.js';
+import { RateLimiter } from './limiters/rate-limiter.js';
 
 @Injectable()
 export class RateLimitGuard implements CanActivate {
