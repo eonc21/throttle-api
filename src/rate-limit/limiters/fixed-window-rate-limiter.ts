@@ -9,14 +9,17 @@ export class FixedWindowRateLimiter extends RateLimiter {
     super();
   }
 
-  async consume({ id, rateLimit }: Client): Promise<boolean> {
-    const windowMs = rateLimit.windowSeconds * 1000;
-    const now = Date.now();
+  async consume({ id, rateLimit }: Client, scope: string): Promise<boolean> {
+    const windowMs = rateLimit.windowSeconds * 1000; // 60 * 1000 = 60 000
+    const now = Date.now(); // 37 000
     const windowEndsAt = (Math.floor(now / windowMs) + 1) * windowMs;
+    // (floor(37 000 / 60 000) + 1) * 60 000 = 60 000
+    const timeToLive = windowEndsAt - now; // 60 000 - 37 000 = 23 000
 
+    // count = 3
     const count = await this.store.increment(
-      `fixed-window:${id}`,
-      windowEndsAt - now,
+      `${scope}:fixed-window:${id}`,
+      timeToLive, // 23 000
     );
 
     return count <= rateLimit.limit;

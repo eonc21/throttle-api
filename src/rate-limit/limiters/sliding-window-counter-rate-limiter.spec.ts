@@ -2,6 +2,7 @@ import { Client } from '../../auth/client.js';
 import { InMemoryCounterStore } from '../stores/counter/in-memory-counter-store.js';
 import { SlidingWindowCounterRateLimiter } from './sliding-window-counter-rate-limiter.js';
 
+const SCOPE = 'BarController.get';
 const WINDOW_MS = 60_000;
 const WINDOW_START_MS = new Date('2026-01-01T00:00:00.000Z').getTime();
 const WINDOW_INDEX = WINDOW_START_MS / WINDOW_MS;
@@ -21,7 +22,7 @@ describe('SlidingWindowCounterRateLimiter', () => {
     const results: boolean[] = [];
 
     for (let i = 0; i < times; i++) {
-      results.push(await limiter.consume(client));
+      results.push(await limiter.consume(client, SCOPE));
     }
 
     return results;
@@ -50,7 +51,7 @@ describe('SlidingWindowCounterRateLimiter', () => {
 
     vi.setSystemTime(WINDOW_START_MS + WINDOW_MS);
 
-    expect(await limiter.consume(client)).toBe(false);
+    expect(await limiter.consume(client, SCOPE)).toBe(false);
   });
 
   it('should count only the part of the previous window that still overlaps', async () => {
@@ -74,23 +75,33 @@ describe('SlidingWindowCounterRateLimiter', () => {
   it('should count each client separately, using its own limit', async () => {
     const small = clientWith('small', 1);
     const large = clientWith('large', 2);
-    await limiter.consume(small);
-    await limiter.consume(large);
+    await limiter.consume(small, SCOPE);
+    await limiter.consume(large, SCOPE);
 
-    expect(await limiter.consume(small)).toBe(false);
-    expect(await limiter.consume(large)).toBe(true);
+    expect(await limiter.consume(small, SCOPE)).toBe(false);
+    expect(await limiter.consume(large, SCOPE)).toBe(true);
+  });
+
+  it('should count the same client separately for each scope', async () => {
+    const client = clientWith('a', 1);
+    await limiter.consume(client, 'BarController.get');
+
+    expect(await limiter.consume(client, 'OtherController.get')).toBe(true);
+    expect(await limiter.consume(client, 'BarController.get')).toBe(false);
   });
 
   it('should keep one counter per window under a key namespaced by the algorithm', async () => {
     const increment = vi.spyOn(store, 'increment');
     const get = vi.spyOn(store, 'get');
 
-    await limiter.consume(clientWith('a', 5));
+    await limiter.consume(clientWith('a', 5), SCOPE);
 
     expect(increment).toHaveBeenCalledWith(
-      `sliding-window:a:${WINDOW_INDEX}`,
+      `${SCOPE}:sliding-window:a:${WINDOW_INDEX}`,
       2 * WINDOW_MS,
     );
-    expect(get).toHaveBeenCalledWith(`sliding-window:a:${WINDOW_INDEX - 1}`);
+    expect(get).toHaveBeenCalledWith(
+      `${SCOPE}:sliding-window:a:${WINDOW_INDEX - 1}`,
+    );
   });
 });

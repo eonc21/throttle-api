@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Client } from './client.js';
+import { validateClients } from './validate-clients.js';
 
 const CLIENTS: readonly Client[] = [
   { id: 'authorized_client', rateLimit: { limit: 5, windowSeconds: 60 } },
@@ -11,6 +12,10 @@ export class ClientRegistry {
   private readonly clients = new Map<string, Client>(
     CLIENTS.map((client) => [client.id, client]),
   );
+
+  constructor() {
+    validateClients(CLIENTS);
+  }
 
   find(id: string): Client | undefined {
     return this.clients.get(id);

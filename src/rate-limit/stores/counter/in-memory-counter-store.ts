@@ -6,12 +6,16 @@ interface Counter {
   expiresAtMs: number;
 }
 
+const EXPIRED_COUNTER_SWEEP_INTERVAL_MS = 60_000;
+
 @Injectable()
 export class InMemoryCounterStore extends CounterStore {
   private readonly counterByKey = new Map<string, Counter>();
+  private lastSweepAtMs = Date.now();
 
-  increment(key: string, ttlMs: number): Promise<number> {
+  increment(key: string, timeToLiveMs: number): Promise<number> {
     const nowMs = Date.now();
+    this.cleanUpExpiredCountersWhenDue(nowMs);
     const existingCounter = this.counterByKey.get(key);
 
     const isExistingCounterActive =
@@ -19,7 +23,7 @@ export class InMemoryCounterStore extends CounterStore {
 
     const activeCounter: Counter = isExistingCounterActive
       ? existingCounter
-      : { requestCount: 0, expiresAtMs: nowMs + ttlMs };
+      : { requestCount: 0, expiresAtMs: nowMs + timeToLiveMs };
 
     activeCounter.requestCount += 1;
     this.counterByKey.set(key, activeCounter);
@@ -34,5 +38,21 @@ export class InMemoryCounterStore extends CounterStore {
     return Promise.resolve(
       isExistingCounterActive ? existingCounter.requestCount : 0,
     );
+  }
+
+  private cleanUpExpiredCountersWhenDue(nowMs: number): void {
+    const isSweepDue =
+      nowMs - this.lastSweepAtMs >= EXPIRED_COUNTER_SWEEP_INTERVAL_MS;
+
+    if (!isSweepDue) {
+      return;
+    }
+
+    for (const [key, counter] of this.counterByKey) {
+      if (counter.expiresAtMs <= nowMs) {
+        this.counterByKey.delete(key);
+      }
+    }
+    this.lastSweepAtMs = nowMs;
   }
 }
