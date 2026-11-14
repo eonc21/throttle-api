@@ -9,12 +9,14 @@ function clientWith(id: string, limit: number): Client {
 }
 
 describe('FixedWindowRateLimiter', () => {
+  let store: InMemoryRateLimitStore;
   let limiter: FixedWindowRateLimiter;
 
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(WINDOW_START);
-    limiter = new FixedWindowRateLimiter(new InMemoryRateLimitStore());
+    store = new InMemoryRateLimitStore();
+    limiter = new FixedWindowRateLimiter(store);
   });
 
   afterEach(() => {
@@ -33,10 +35,9 @@ describe('FixedWindowRateLimiter', () => {
   });
 
   it('should store the counts under a key namespaced by the algorithm', async () => {
-    const store = new InMemoryRateLimitStore();
     const increment = vi.spyOn(store, 'increment');
 
-    await new FixedWindowRateLimiter(store).consume(clientWith('a', 1));
+    await limiter.consume(clientWith('a', 1));
 
     expect(increment).toHaveBeenCalledWith(
       'fixed-window:a',

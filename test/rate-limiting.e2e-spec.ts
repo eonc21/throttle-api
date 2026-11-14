@@ -5,38 +5,80 @@ import request from 'supertest';
 import { App } from 'supertest/types.js';
 import { AppModule } from '../src/app.module.js';
 
-const REDIS_URL = 'redis://localhost:6379/1';
+const TEST_REDIS_URL = 'redis://localhost:6379/1';
+const UNREACHABLE_REDIS_URL = 'redis://localhost:1';
+const WINDOW_START = new Date('2026-01-01T00:00:00.000Z');
+
+const AUTHORIZED_CLIENT = 'authorized_client';
+const PREMIUM_CLIENT = 'premium_client';
+const AUTHORIZED_CLIENT_LIMIT = 5;
+
+function configureRateLimitStore(store: string, redisUrl: string): void {
+  process.env.RATE_LIMIT_STORE = store;
+  process.env.REDIS_URL = redisUrl;
+}
+
+function resetRateLimitStoreConfiguration(): void {
+  delete process.env.RATE_LIMIT_STORE;
+  delete process.env.REDIS_URL;
+}
+
+async function createApp(): Promise<INestApplication<App>> {
+  const moduleFixture = await Test.createTestingModule({
+    imports: [AppModule],
+  }).compile();
+
+  return moduleFixture.createNestApplication();
+}
 
 describe.each([
-  { store: 'memory', storedKeys: 0, statusAfterRestart: 200 },
-  { store: 'redis', storedKeys: 1, statusAfterRestart: 429 },
+  {
+    store: 'memory',
+    expectedRedisKeyCount: 0,
+    restartOutcome: 'forgets the counters',
+    expectedStatusAfterRestart: 200,
+  },
+  {
+    store: 'redis',
+    expectedRedisKeyCount: 1,
+    restartOutcome: 'remembers the counters',
+    expectedStatusAfterRestart: 429,
+  },
 ])(
   '/foo rate limiting with the $store store',
-  ({ store, storedKeys, statusAfterRestart }) => {
+  ({
+    store,
+    expectedRedisKeyCount,
+    restartOutcome,
+    expectedStatusAfterRestart,
+  }) => {
     let app: INestApplication<App>;
     let redis: Redis;
 
     const startApp = async (): Promise<void> => {
-      const moduleFixture = await Test.createTestingModule({
-        imports: [AppModule],
-      }).compile();
-      app = moduleFixture.createNestApplication();
+      app = await createApp();
       await app.init();
     };
 
-    const getFoo = (clientId: string) =>
+    const requestFoo = (clientId: string) =>
       request(app.getHttpServer())
         .get('/foo')
         .set('Authorization', `Bearer ${clientId}`);
 
-    const exhaust = async (clientId: string, times: number): Promise<void> => {
-      for (let i = 0; i < times; i++) {
-        await getFoo(clientId).expect(200);
+    const sendAllowedRequests = async (
+      clientId: string,
+      requestCount: number,
+    ): Promise<void> => {
+      for (let i = 0; i < requestCount; i++) {
+        await requestFoo(clientId).expect(200);
       }
     };
 
+    const useUpAuthorizedClientLimit = (): Promise<void> =>
+      sendAllowedRequests(AUTHORIZED_CLIENT, AUTHORIZED_CLIENT_LIMIT);
+
     beforeAll(() => {
-      redis = new Redis(REDIS_URL);
+      redis = new Redis(TEST_REDIS_URL);
     });
 
     afterAll(async () => {
@@ -44,67 +86,61 @@ describe.each([
     });
 
     beforeEach(async () => {
-      process.env.RATE_LIMIT_STORE = store;
-      process.env.REDIS_URL = REDIS_URL;
+      configureRateLimitStore(store, TEST_REDIS_URL);
       await redis.flushdb();
       vi.useFakeTimers({ toFake: ['Date'] });
-      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      vi.setSystemTime(WINDOW_START);
       await startApp();
     });
 
     afterEach(async () => {
       await app.close();
       vi.useRealTimers();
-      delete process.env.RATE_LIMIT_STORE;
-      delete process.env.REDIS_URL;
+      resetRateLimitStoreConfiguration();
     });
 
-    it('is rejected with 429 once the client limit is exceeded', async () => {
-      await exhaust('authorized_client', 5);
+    it('rejects the request after the limit with 429 and an error body', async () => {
+      await useUpAuthorizedClientLimit();
 
-      await getFoo('authorized_client')
+      await requestFoo(AUTHORIZED_CLIENT)
         .expect(429)
         .expect({ error: 'rate limit exceeded' });
     });
 
-    it('applies each client its own limit', async () => {
-      await exhaust('authorized_client', 5);
+    it('keeps counting each client separately, so another client is not affected', async () => {
+      await useUpAuthorizedClientLimit();
 
-      await exhaust('premium_client', 6);
+      await sendAllowedRequests(PREMIUM_CLIENT, AUTHORIZED_CLIENT_LIMIT + 1);
     });
 
-    it('keeps the counters only in the chosen store', async () => {
-      await exhaust('authorized_client', 5);
+    it('writes counters to Redis only when the redis store is chosen', async () => {
+      await useUpAuthorizedClientLimit();
 
-      expect(await redis.dbsize()).toBe(storedKeys);
+      expect(await redis.dbsize()).toBe(expectedRedisKeyCount);
     });
 
-    it(`answers ${statusAfterRestart} after an app restart`, async () => {
-      await exhaust('authorized_client', 5);
+    it(`${restartOutcome} after an app restart (status ${expectedStatusAfterRestart})`, async () => {
+      await useUpAuthorizedClientLimit();
 
       await app.close();
       await startApp();
 
-      await getFoo('authorized_client').expect(statusAfterRestart);
+      await requestFoo(AUTHORIZED_CLIENT).expect(expectedStatusAfterRestart);
     });
   },
 );
 
-describe('rate limit store configuration', () => {
+describe('app start-up with the redis store', () => {
   afterEach(() => {
-    delete process.env.RATE_LIMIT_STORE;
-    delete process.env.REDIS_URL;
+    resetRateLimitStoreConfiguration();
   });
 
-  it('refuses to start when the redis store is unreachable', async () => {
-    process.env.RATE_LIMIT_STORE = 'redis';
-    process.env.REDIS_URL = 'redis://localhost:1';
-    const moduleFixture = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-    const app = moduleFixture.createNestApplication();
+  it('refuses to start when Redis is unreachable', async () => {
+    configureRateLimitStore('redis', UNREACHABLE_REDIS_URL);
+    const app = await createApp();
 
     await expect(app.init()).rejects.toThrow();
+
     await app.close();
   });
 });
