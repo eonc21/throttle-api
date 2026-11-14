@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { Client } from '../auth/client.js';
-import { RateLimitStore } from './rate-limit-store.js';
+import { Client } from '../../auth/client.js';
+import { RateLimitStore } from '../stores/rate-limit-store.js';
 import { RateLimiter } from './rate-limiter.js';
 
 @Injectable()
@@ -14,7 +14,10 @@ export class FixedWindowRateLimiter extends RateLimiter {
     const now = Date.now();
     const windowEndsAt = (Math.floor(now / windowMs) + 1) * windowMs;
 
-    const count = await this.store.increment(id, windowEndsAt - now);
+    const count = await this.store.increment(
+      `fixed-window:${id}`,
+      windowEndsAt - now,
+    );
 
     return count <= rateLimit.limit;
   }
