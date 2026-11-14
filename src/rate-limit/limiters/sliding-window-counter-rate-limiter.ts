@@ -9,18 +9,19 @@ export class SlidingWindowCounterRateLimiter extends RateLimiter {
     super();
   }
 
-  async consume({ id, rateLimit }: Client): Promise<boolean> {
+  async consume({ id, rateLimit }: Client, scope: string): Promise<boolean> {
     const windowMs = rateLimit.windowSeconds * 1000;
     const nowMs = Date.now();
+
     const currentWindowIndex = Math.floor(nowMs / windowMs);
     const elapsedInWindowMs = nowMs - currentWindowIndex * windowMs;
     const previousWindowWeight = 1 - elapsedInWindowMs / windowMs;
 
     const previousWindowCount = await this.store.get(
-      this.counterKey(id, currentWindowIndex - 1),
+      this.counterKey(scope, id, currentWindowIndex - 1),
     );
     const currentWindowCount = await this.store.increment(
-      this.counterKey(id, currentWindowIndex),
+      this.counterKey(scope, id, currentWindowIndex),
       2 * windowMs,
     );
 
@@ -30,7 +31,11 @@ export class SlidingWindowCounterRateLimiter extends RateLimiter {
     return estimatedRequestCount <= rateLimit.limit;
   }
 
-  private counterKey(clientId: string, windowIndex: number): string {
-    return `sliding-window:${clientId}:${windowIndex}`;
+  private counterKey(
+    scope: string,
+    clientId: string,
+    windowIndex: number,
+  ): string {
+    return `${scope}:sliding-window:${clientId}:${windowIndex}`;
   }
 }

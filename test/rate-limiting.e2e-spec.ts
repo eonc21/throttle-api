@@ -162,3 +162,45 @@ describe('app start-up with the redis store', () => {
     await app.close();
   });
 });
+
+describe('rate limiting while the redis store is not responding', () => {
+  let app: INestApplication<App>;
+  let redis: Redis;
+
+  beforeAll(() => {
+    redis = new Redis(TEST_REDIS_URL);
+  });
+
+  afterAll(async () => {
+    await redis.quit();
+  });
+
+  beforeEach(async () => {
+    configureRateLimitStore('redis', TEST_REDIS_URL);
+    await redis.flushdb();
+    app = await createApp();
+    await app.init();
+  });
+
+  afterEach(async () => {
+    await redis.ping();
+    await app.close();
+    resetRateLimitStoreConfiguration();
+  });
+
+  it.each(['/foo', '/bar'])(
+    'answers 503 on %s instead of letting requests through, and recovers afterwards',
+    async (endpoint) => {
+      const requestEndpoint = () =>
+        request(app.getHttpServer())
+          .get(endpoint)
+          .set('Authorization', `Bearer ${AUTHORIZED_CLIENT}`);
+
+      await redis.client('PAUSE', 1_500, 'ALL');
+      await requestEndpoint().expect(503);
+
+      await redis.ping();
+      await requestEndpoint().expect(200);
+    },
+  );
+});

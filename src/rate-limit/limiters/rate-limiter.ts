@@ -1,5 +1,5 @@
 import { Client } from '../../auth/client.js';
 
 export abstract class RateLimiter {
-  abstract consume(client: Client): Promise<boolean>;
+  abstract consume(client: Client, scope: string): Promise<boolean>;
 }

@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Redis } from 'ioredis';
+import { RateLimitStoreUnavailableError } from '../rate-limit-store-unavailable.error.js';
 import { CounterStore } from './counter-store.js';
 
 const INCREMENT_COUNTER_WITH_EXPIRY_SCRIPT = `
@@ -31,24 +32,36 @@ export class RedisCounterStore
     }
   }
 
-  async increment(key: string, ttlMs: number): Promise<number> {
-    const redisReply = await this.redisClient.eval(
-      INCREMENT_COUNTER_WITH_EXPIRY_SCRIPT,
-      NUMBER_OF_KEYS_PASSED_TO_SCRIPT,
-      key,
-      ttlMs,
-    );
+  async increment(key: string, timeToLiveMs: number): Promise<number> {
+    try {
+      const redisReply = await this.redisClient.eval(
+        INCREMENT_COUNTER_WITH_EXPIRY_SCRIPT,
+        NUMBER_OF_KEYS_PASSED_TO_SCRIPT,
+        key,
+        timeToLiveMs,
+      );
 
-    return Number(redisReply);
+      return Number(redisReply);
+    } catch (error) {
+      throw new RateLimitStoreUnavailableError(error);
+    }
   }
 
   async get(key: string): Promise<number> {
-    const redisReply = await this.redisClient.get(key);
+    try {
+      const redisReply = await this.redisClient.get(key);
 
-    return Number(redisReply ?? 0);
+      return Number(redisReply ?? 0);
+    } catch (error) {
+      throw new RateLimitStoreUnavailableError(error);
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
-    await this.redisClient.quit();
+    try {
+      await this.redisClient.quit();
+    } catch {
+      this.redisClient.disconnect();
+    }
   }
 }

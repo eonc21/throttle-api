@@ -16,6 +16,15 @@ npm run start:dev
 
 The app listens on `http://localhost:3000` (set `PORT` to change it). By default, request counters are kept in memory.
 
+### Choose where the counters live
+
+| Store    | Counters are kept in                  | Use it when                                                         |
+| -------- | ------------------------------------- | ------------------------------------------------------------------- |
+| `memory` | the app's own memory                  | you run a single instance, locally or in tests                      |
+| `redis`  | Redis, shared and surviving a restart | you run more than one instance, or want limits to survive a restart |
+
+The in-memory counters belong to one process. They are lost when the app restarts, and **if you run several instances each one counts on its own, so a client's real limit becomes the limit multiplied by the number of instances**. Use the Redis store for anything with more than one instance.
+
 ### Use Redis for the counters
 
 ```bash
@@ -48,8 +57,11 @@ curl -H "Authorization: Bearer authorized_client" http://localhost:3000/foo
 | `200 { "success": true }`                | the client is within its limit              |
 | `401`                                    | the header is missing or the client unknown |
 | `429 { "error": "rate limit exceeded" }` | the client is over its limit                |
+| `503`                                    | the Redis store is not responding           |
 
-Clients and limits are defined in `src/auth/client-registry.ts`.
+When the Redis store is down, requests are rejected with `503` instead of being let through unlimited. Requests without valid credentials still get `401`.
+
+Clients and limits are defined in `src/auth/client-registry.ts`. They are checked when the app starts: a limit or window that is not a positive whole number, or a duplicate or blank client id, stops the app with an error.
 
 The two endpoints use different algorithms:
 

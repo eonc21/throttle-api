@@ -6,6 +6,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     name: 'unit',
+    env: { RATE_LIMIT_STORE: 'memory' },
     globals: true,
     root: './',
     include: ['**/*.spec.ts'],
