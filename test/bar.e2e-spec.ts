@@ -68,6 +68,31 @@ describe('Bar Functionality (e2e)', () => {
     },
   );
 
+  describe('Rate limiting', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('/bar (GET) is rate limited: a client sending too many requests gets 429', async () => {
+      const statuses: number[] = [];
+
+      for (let i = 0; i < 10; i++) {
+        const { status } = await request(app.getHttpServer())
+          .get('/bar')
+          .set('Authorization', 'Bearer authorized_client');
+        statuses.push(status);
+      }
+
+      expect(statuses[0]).toBe(200);
+      expect(statuses).toContain(429);
+    });
+  });
+
   afterEach(async () => {
     await app.close();
   });
